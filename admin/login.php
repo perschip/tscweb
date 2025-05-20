@@ -1,8 +1,34 @@
 <?php
 // Include database connection and auth check
 require_once '../includes/db.php';
-require_once '../includes/auth.php';
 require_once '../includes/functions.php';
+
+// Start session if not already started
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Function to log users in
+function loginUser($user_id, $username, $role) {
+    $_SESSION['user_id'] = $user_id;
+    $_SESSION['username'] = $username;
+    $_SESSION['user_role'] = $role;
+    $_SESSION['logged_in_time'] = time();
+}
+
+// Check if user is already logged in
+if (isset($_SESSION['user_id'])) {
+    // Redirect to dashboard
+    header('Location: index.php');
+    exit;
+}
+
+// Check for timeout message
+$timeout_message = '';
+if (isset($_SESSION['timeout_message'])) {
+    $timeout_message = $_SESSION['timeout_message'];
+    unset($_SESSION['timeout_message']);
+}
 
 // Check for login form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -34,12 +60,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Login successful
                 loginUser($user['id'], $user['username'], $user['role']);
                 
-                // Redirect to dashboard
-                header('Location: index.php');
+                // Log the successful login
+                try {
+                    $log_query = "INSERT INTO login_logs (user_id, username, ip_address, success) 
+                                VALUES (:user_id, :username, :ip, 1)";
+                    $log_stmt = $pdo->prepare($log_query);
+                    $log_stmt->bindParam(':user_id', $user['id']);
+                    $log_stmt->bindParam(':username', $user['username']);
+                    $log_stmt->bindParam(':ip', $_SERVER['REMOTE_ADDR']);
+                    $log_stmt->execute();
+                } catch (PDOException $e) {
+                    // Silent fail - don't block login if logging fails
+                }
+                
+                // Redirect to original requested page or dashboard
+                if (isset($_SESSION['redirect_after_login'])) {
+                    $redirect = $_SESSION['redirect_after_login'];
+                    unset($_SESSION['redirect_after_login']);
+                    header('Location: ' . $redirect);
+                } else {
+                    header('Location: index.php');
+                }
                 exit;
             } else {
                 // Invalid credentials
                 $errors[] = 'Invalid username or password';
+                
+                // Log the failed login attempt
+                try {
+                    $log_query = "INSERT INTO login_logs (username, ip_address, success) 
+                                VALUES (:username, :ip, 0)";
+                    $log_stmt = $pdo->prepare($log_query);
+                    $log_stmt->bindParam(':username', $username);
+                    $log_stmt->bindParam(':ip', $_SERVER['REMOTE_ADDR']);
+                    $log_stmt->execute();
+                } catch (PDOException $e) {
+                    // Silent fail - don't block login if logging fails
+                }
             }
         } catch (PDOException $e) {
             $errors[] = 'Database error: ' . $e->getMessage();
@@ -56,55 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <title>Admin Login - Tristate Cards</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <style>
-        body {
-            background-color: #f8f9fa;
-        }
-        .login-container {
-            max-width: 400px;
-            margin: 100px auto;
-        }
-        .login-card {
-            border: none;
-            border-radius: 10px;
-            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-        }
-        .login-header {
-            background: linear-gradient(135deg, #0d6efd, #6610f2);
-            color: white;
-            padding: 20px;
-            border-radius: 10px 10px 0 0;
-            text-align: center;
-        }
-        .login-logo {
-            font-size: 24px;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-        .login-subtext {
-            font-size: 14px;
-            opacity: 0.8;
-        }
-        .login-body {
-            padding: 30px;
-        }
-        .btn-login {
-            background: linear-gradient(135deg, #0d6efd, #6610f2);
-            border: none;
-            width: 100%;
-            padding: 10px;
-        }
-        .input-group-text {
-            background-color: transparent;
-            border-right: none;
-        }
-        .form-control.login-input {
-            border-left: none;
-        }
-        .form-control.login-input:focus {
-            box-shadow: none;
-        }
-    </style>
+    <link href="/admin/assets/css/admin.css" rel="stylesheet">
 </head>
 <body>
     <div class="login-container">
@@ -121,6 +130,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <li><?php echo htmlspecialchars($error); ?></li>
                             <?php endforeach; ?>
                         </ul>
+                    </div>
+                <?php endif; ?>
+                
+                <?php if (!empty($timeout_message)): ?>
+                    <div class="alert alert-warning">
+                        <?php echo htmlspecialchars($timeout_message); ?>
                     </div>
                 <?php endif; ?>
                 
@@ -160,13 +175,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </form>
                 
                 <div class="text-center mt-4">
-                    <a href="#" class="text-decoration-none">Forgot your password?</a>
+                    <a href="/emergency_access.php" class="text-decoration-none">Trouble logging in? Use Emergency Access</a>
                 </div>
             </div>
         </div>
         
         <div class="text-center mt-3 text-muted">
-            <small>&copy; 2025 Tristate Cards. All rights reserved.</small>
+            <small>&copy; <?php echo date('Y'); ?> Tristate Cards. All rights reserved.</small>
         </div>
     </div>
     

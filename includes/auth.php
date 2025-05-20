@@ -7,6 +7,10 @@ if (session_status() === PHP_SESSION_NONE) {
 // Check if user is logged in, redirect to login if not
 function requireLogin() {
     if (!isLoggedIn()) {
+        // Store the requested URL for redirection after login
+        $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'];
+        
+        // Redirect to login page
         header('Location: /admin/login.php');
         exit;
     }
@@ -14,7 +18,7 @@ function requireLogin() {
 
 // Check if user is logged in
 function isLoggedIn() {
-    return isset($_SESSION['user_id']);
+    return isset($_SESSION['user_id']) && !empty($_SESSION['user_id']);
 }
 
 // Check if user is admin
@@ -36,8 +40,39 @@ function logoutUser() {
     session_destroy();
 }
 
-// TEMPORARY: Skip authentication check for admin area until database is fixed
-// Comment this section out once your login system is working
+// Check if current page is an admin page and require login
+$current_uri = $_SERVER['REQUEST_URI'];
+if (strpos($current_uri, '/admin/') !== false && 
+    strpos($current_uri, '/admin/login.php') === false &&
+    strpos($current_uri, '/admin/logout.php') === false) {
+    requireLogin();
+}
+
+// Check for session timeout (auto logout after 2 hours of inactivity)
+if (isLoggedIn() && isset($_SESSION['logged_in_time'])) {
+    $timeout_duration = 2 * 60 * 60; // 2 hours in seconds
+    $current_time = time();
+    
+    if ($current_time - $_SESSION['logged_in_time'] > $timeout_duration) {
+        // Session has expired, log the user out
+        logoutUser();
+        
+        // Store the requested URL for redirection after login
+        $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'];
+        $_SESSION['timeout_message'] = 'Your session has expired. Please log in again.';
+        
+        // Redirect to login page
+        header('Location: /admin/login.php');
+        exit;
+    } else {
+        // Update the last activity time for the user
+        $_SESSION['logged_in_time'] = $current_time;
+    }
+}
+
+// REMOVE THIS TEMPORARY CODE - it was automatically logging everyone in as admin
+// This was the security hole in your system
+/*
 if (strpos($_SERVER['REQUEST_URI'], '/admin/') !== false && !isset($_SESSION['user_id'])) {
     // Auto-login as admin for admin pages
     $_SESSION['user_id'] = 1;
@@ -45,12 +80,5 @@ if (strpos($_SERVER['REQUEST_URI'], '/admin/') !== false && !isset($_SESSION['us
     $_SESSION['user_role'] = 'admin';
     $_SESSION['logged_in_time'] = time();
 }
-
-// Regular authentication check (commented out temporarily)
-/*
-// If admin page, require login
-$current_script = basename($_SERVER['SCRIPT_NAME']);
-if (strpos($_SERVER['REQUEST_URI'], '/admin/') !== false && $current_script !== 'login.php') {
-    requireLogin();
-}
 */
+?>

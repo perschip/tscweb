@@ -28,7 +28,6 @@ $site_description = getSetting('site_description', 'Your trusted source for spor
     <!-- CSS -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    
     <!-- Custom CSS -->
     <style>
         :root {
@@ -209,6 +208,8 @@ $site_description = getSetting('site_description', 'Your trusted source for spor
             font-weight: 600;
             text-align: right;
         }
+        
+        
     </style>
     
     <!-- Google Analytics -->

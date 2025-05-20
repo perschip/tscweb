@@ -43,8 +43,9 @@ include 'includes/header.php';
                 <div class="card-body">
                     <h2 class="card-title mb-4">Current eBay Listings</h2>
                     <div id="ebay-listings">
-                        <!-- CORRECTED: Using protocol-relative URL to help avoid ad blockers -->
-                        <script type="text/javascript" src="https://www.auctionnudge.com/feed/item/js/theme/responsive/page/init/img_size/120/cats_output/dropdown/search_box/1/user_profile/1/blank/1/show_logo/1/lang/english/SellerID/tristate_cards/siteid/0/MaxEntries/6/target/4c9be4bc1"></script><div id="auction-nudge-4c9be4bc1"></div>
+                        <!-- Auction Nudge Embed -->
+                        <script type="text/javascript" src="https://www.auctionnudge.com/feed/item/js/theme/responsive/page/init/img_size/120/cats_output/dropdown/search_box/1/user_profile/1/blank/1/show_logo/1/lang/english/SellerID/tristate_cards/siteid/0/MaxEntries/6/target/4c9be4bc1"></script>
+                        <div id="auction-nudge-4c9be4bc1"></div>
                     </div>
                 </div>
             </div>
@@ -208,6 +209,41 @@ document.getElementById('newsletter-form').addEventListener('submit', function(e
     alert('Thanks for subscribing! We\'ll keep you updated with the latest news.');
     this.reset();
 });
+
+// Additional check for eBay listings loading issues
+document.addEventListener('DOMContentLoaded', function() {
+    // After 5 seconds, double-check if listings loaded properly
+    setTimeout(function() {
+        const ebayContainer = document.getElementById('ebay-listings');
+        const auctionNudgeContainer = document.getElementById('auction-nudge-4c9be4bc1');
+        
+        // Check if the Auction Nudge container exists and has content
+        if (!auctionNudgeContainer || 
+            auctionNudgeContainer.innerHTML.trim() === '' || 
+            auctionNudgeContainer.querySelectorAll('.an-item').length === 0) {
+            
+            // Create error message if one doesn't already exist
+            if (!ebayContainer.querySelector('.alert-warning')) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'alert alert-warning';
+                errorDiv.innerHTML = `
+                    <h5 class="mb-3"><i class="fas fa-exclamation-triangle me-2"></i> Unable to Load eBay Listings</h5>
+                    <p>We're having trouble displaying our eBay listings. This might be due to an ad blocker or other browser extension.</p>
+                    <p class="mb-0">To view our current listings, please visit our <a href="https://www.ebay.com/usr/tristate_cards" target="_blank" class="alert-link">eBay store directly <i class="fas fa-external-link-alt fa-xs"></i></a>.</p>
+                `;
+                
+                // Add the error message to the container
+                ebayContainer.appendChild(errorDiv);
+                
+                // Hide the empty Auction Nudge container
+                if (auctionNudgeContainer) {
+                    auctionNudgeContainer.style.display = 'none';
+                }
+            }
+        }
+    }, 5000); // Check after 5 seconds
+});
 </script>
+
 
 <?php include 'includes/footer.php'; ?>

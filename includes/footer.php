@@ -40,5 +40,8 @@
 <!-- JavaScript Dependencies -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
 
+<!-- Ad Blocker Detector -->
+<script src="/assets/js/adblock-detector.js" defer></script>
+
 </body>
 </html>

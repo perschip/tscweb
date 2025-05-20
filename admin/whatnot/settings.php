@@ -74,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             exit;
             
         } catch (PDOException $e) {
-            // Rollback transaction
+            // Rollback transaction on error
             $pdo->rollBack();
             $errors[] = 'Database error: ' . $e->getMessage();
         }
@@ -188,186 +188,27 @@ try {
     $errors[] = 'Status table error: ' . $e->getMessage();
 }
 
-// Include header
+// Page variables
 $page_title = 'Whatnot Integration Settings';
-include '../../includes/header.php';
-?>
 
-<div class="container-fluid">
-    <div class="row">
-        <!-- Sidebar -->
-        <?php include '../../includes/sidebar.php'; ?>
-
-        <!-- Main Content -->
-        <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                <h1 class="h2">Whatnot Integration Settings</h1>
-            </div>
-            
-            <?php if (isset($errors) && !empty($errors)): ?>
-                <div class="alert alert-warning">
-                    <h5><i class="fas fa-exclamation-triangle me-2"></i> Important Information</h5>
-                    <p>Your database is not properly configured to handle emoji characters. Please avoid using emojis in your stream titles.</p>
-                    <p>To fix this permanently, update your database by running this SQL command:</p>
-                    <pre>ALTER TABLE whatnot_status CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;</pre>
-                </div>
-            <?php endif; ?>
-
-            <?php if (isset($_SESSION['success_message'])): ?>
-                <div class="alert alert-success alert-dismissible fade show">
-                    <?php 
-                    echo $_SESSION['success_message'];
-                    unset($_SESSION['success_message']);
-                    ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            <?php endif; ?>
-
-            <?php if (!empty($errors)): ?>
-                <div class="alert alert-danger">
-                    <ul class="mb-0">
-                        <?php foreach ($errors as $error): ?>
-                            <li><?php echo htmlspecialchars($error); ?></li>
-                        <?php endforeach; ?>
-                    </ul>
-                </div>
-            <?php endif; ?>
-
-            <div class="row">
-                <div class="col-md-6">
-                    <!-- API Settings -->
-                    <div class="card shadow mb-4">
-                        <div class="card-header py-3">
-                            <h6 class="m-0 font-weight-bold">Whatnot API Settings</h6>
-                        </div>
-                        <div class="card-body">
-                            <form action="settings.php" method="post">
-                                <input type="hidden" name="action" value="save_api_settings">
-                                
-                                <div class="mb-3">
-                                    <label for="whatnot_username" class="form-label">Whatnot Username *</label>
-                                    <input type="text" class="form-control" id="whatnot_username" name="whatnot_username" 
-                                           value="<?php echo isset($settings['whatnot_username']) ? htmlspecialchars($settings['whatnot_username']) : ''; ?>" required>
-                                    <div class="form-text">Your Whatnot username (without the @ symbol)</div>
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <label for="whatnot_api_key" class="form-label">API Key</label>
-                                    <input type="text" class="form-control" id="whatnot_api_key" name="whatnot_api_key" 
-                                           value="<?php echo isset($settings['whatnot_api_key']) ? htmlspecialchars($settings['whatnot_api_key']) : ''; ?>">
-                                    <div class="form-text">Get this from your Whatnot developer account</div>
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <label for="whatnot_api_secret" class="form-label">API Secret</label>
-                                    <input type="password" class="form-control" id="whatnot_api_secret" name="whatnot_api_secret" 
-                                           value="<?php echo isset($settings['whatnot_api_secret']) ? htmlspecialchars($settings['whatnot_api_secret']) : ''; ?>">
-                                    <div class="form-text">Keep this secret and secure</div>
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <label for="auto_check_interval" class="form-label">Auto-Check Interval (minutes)</label>
-                                    <input type="number" class="form-control" id="auto_check_interval" name="auto_check_interval" min="5" 
-                                           value="<?php echo isset($settings['whatnot_check_interval']) ? htmlspecialchars($settings['whatnot_check_interval']) : '15'; ?>">
-                                    <div class="form-text">How often to check for stream status updates (minimum 5 minutes)</div>
-                                </div>
-                                
-                                <button type="submit" class="btn btn-primary">Save API Settings</button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-6">
-                    <!-- Manual Stream Update -->
-                    <div class="card shadow mb-4">
-                        <div class="card-header py-3">
-                            <h6 class="m-0 font-weight-bold">Manual Stream Update</h6>
-                        </div>
-                        <div class="card-body">
-                            <?php if ($whatnot_status): ?>
-                                <div class="alert <?php echo $whatnot_status['is_live'] ? 'alert-success' : 'alert-info'; ?> mb-4">
-                                    <strong>Current Status:</strong> 
-                                    <?php if ($whatnot_status['is_live']): ?>
-                                        <span class="badge bg-success">LIVE</span> with "<?php echo htmlspecialchars($whatnot_status['stream_title']); ?>"
-                                    <?php elseif ($whatnot_status['scheduled_time'] && strtotime($whatnot_status['scheduled_time']) > time()): ?>
-                                        <span class="badge bg-info">UPCOMING</span> "<?php echo htmlspecialchars($whatnot_status['stream_title']); ?>" on <?php echo date('F j, Y \a\t g:i A', strtotime($whatnot_status['scheduled_time'])); ?>
-                                    <?php else: ?>
-                                        <span class="badge bg-secondary">OFFLINE</span>
-                                    <?php endif; ?>
-                                    <div class="small mt-1">Last updated: <?php echo date('F j, Y \a\t g:i A', strtotime($whatnot_status['last_checked'])); ?></div>
-                                </div>
-                            <?php endif; ?>
-
-                            <form action="settings.php" method="post">
-                                <input type="hidden" name="action" value="update_stream">
-                                
-                                <div class="mb-3">
-                                    <label class="form-label d-block">Stream Status</label>
-                                    <div class="form-check form-check-inline">
-                                        <input class="form-check-input" type="radio" name="is_live" id="status_live" value="1" <?php echo (isset($_POST['is_live']) && $_POST['is_live'] === '1') ? 'checked' : ''; ?>>
-                                        <label class="form-check-label" for="status_live">Live Now</label>
-                                    </div>
-                                    <div class="form-check form-check-inline">
-                                        <input class="form-check-input" type="radio" name="is_live" id="status_upcoming" value="0" <?php echo (!isset($_POST['is_live']) || $_POST['is_live'] === '0') ? 'checked' : ''; ?>>
-                                        <label class="form-check-label" for="status_upcoming">Upcoming/Offline</label>
-                                    </div>
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <label for="stream_title" class="form-label">Stream Title * <small class="text-danger">(no emojis please)</small></label>
-                                    <input type="text" class="form-control" id="stream_title" name="stream_title" 
-                                           value="<?php echo isset($_POST['stream_title']) ? htmlspecialchars($_POST['stream_title']) : ''; ?>" required>
-                                </div>
-                                
-                                <div class="mb-3 live-field">
-                                    <label for="stream_url" class="form-label">Stream URL</label>
-                                    <input type="url" class="form-control" id="stream_url" name="stream_url" 
-                                           value="<?php echo isset($_POST['stream_url']) ? htmlspecialchars($_POST['stream_url']) : ''; ?>">
-                                    <div class="form-text">The URL where viewers can watch your stream</div>
-                                </div>
-                                
-                                <div class="mb-3 upcoming-field">
-                                    <label for="scheduled_time" class="form-label">Scheduled Time</label>
-                                    <input type="datetime-local" class="form-control" id="scheduled_time" name="scheduled_time" 
-                                           value="<?php echo isset($_POST['scheduled_time']) ? htmlspecialchars($_POST['scheduled_time']) : ''; ?>">
-                                </div>
-                                
-                                <button type="submit" class="btn btn-success">Update Stream Status</button>
-                                
-                                <?php if ($whatnot_status && $whatnot_status['is_live']): ?>
-                                    <button type="submit" name="end_stream" value="1" class="btn btn-outline-danger ms-2" 
-                                            onclick="return confirm('Are you sure you want to end the current stream?');">
-                                        End Current Stream
-                                    </button>
-                                <?php endif; ?>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<?php include '../../includes/footer.php'; ?>
-
+// Extra scripts
+$extra_scripts = '
 <script>
 // Toggle fields based on stream status
-document.addEventListener('DOMContentLoaded', function() {
-    const streamStatus = document.querySelectorAll('input[name="is_live"]');
-    const liveFields = document.querySelectorAll('.live-field');
-    const upcomingFields = document.querySelectorAll('.upcoming-field');
+document.addEventListener("DOMContentLoaded", function() {
+    const streamStatus = document.querySelectorAll("input[name=\'is_live\']");
+    const liveFields = document.querySelectorAll(".live-field");
+    const upcomingFields = document.querySelectorAll(".upcoming-field");
     
     function toggleFields() {
-        const isLive = document.querySelector('#status_live').checked;
+        const isLive = document.querySelector("#status_live").checked;
         
         liveFields.forEach(field => {
-            field.style.display = isLive ? 'block' : 'none';
+            field.style.display = isLive ? "block" : "none";
         });
         
         upcomingFields.forEach(field => {
-            field.style.display = isLive ? 'none' : 'block';
+            field.style.display = isLive ? "none" : "block";
         });
     }
     
@@ -376,7 +217,431 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Add event listeners
     streamStatus.forEach(radio => {
-        radio.addEventListener('change', toggleFields);
+        radio.addEventListener("change", toggleFields);
     });
 });
 </script>
+';
+
+// Include admin header
+include_once '../includes/header.php';
+?>
+
+<?php if (isset($errors) && !empty($errors)): ?>
+    <div class="alert alert-warning">
+        <h5><i class="fas fa-exclamation-triangle me-2"></i> Important Information</h5>
+        <p>Your database is not properly configured to handle emoji characters. Please avoid using emojis in your stream titles.</p>
+        <p>To fix this permanently, update your database by running this SQL command:</p>
+        <pre>ALTER TABLE whatnot_status CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;</pre>
+        <p>Or use our <a href="/emoji_converter.php" class="alert-link">emoji converter tool</a> to fix this issue automatically.</p>
+    </div>
+<?php endif; ?>
+
+<!-- Current Status Card -->
+<?php if ($whatnot_status): ?>
+    <div class="card dashboard-card mb-4">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h4>
+                        <?php if ($whatnot_status['is_live']): ?>
+                            <span class="whatnot-status-indicator status-live"></span> LIVE NOW
+                        <?php elseif ($whatnot_status['scheduled_time'] && strtotime($whatnot_status['scheduled_time']) > time()): ?>
+                            <span class="whatnot-status-indicator status-upcoming"></span> UPCOMING STREAM
+                        <?php else: ?>
+                            <span class="whatnot-status-indicator status-offline"></span> OFFLINE
+                        <?php endif; ?>
+                    </h4>
+                    
+                    <?php if ($whatnot_status['is_live'] || ($whatnot_status['scheduled_time'] && strtotime($whatnot_status['scheduled_time']) > time())): ?>
+                        <h5><?php echo htmlspecialchars($whatnot_status['stream_title']); ?></h5>
+                        
+                        <?php if ($whatnot_status['scheduled_time']): ?>
+                            <p>Scheduled for: <?php echo date('F j, Y \a\t g:i A', strtotime($whatnot_status['scheduled_time'])); ?></p>
+                        <?php endif; ?>
+                    <?php else: ?>
+                        <p>No active or upcoming streams.</p>
+                    <?php endif; ?>
+                    
+                    <div class="small text-muted">Last updated: <?php echo date('F j, Y \a\t g:i A', strtotime($whatnot_status['last_checked'])); ?></div>
+                </div>
+                
+                <div class="col-md-4 text-end">
+                    <?php if ($whatnot_status['is_live']): ?>
+                        <a href="<?php echo htmlspecialchars($whatnot_status['stream_url']); ?>" class="btn btn-success mb-2" target="_blank">
+                            <i class="fas fa-external-link-alt me-1"></i> View Stream
+                        </a>
+                        <form method="post" class="d-inline-block">
+                            <button type="submit" name="end_stream" value="1" class="btn btn-outline-danger" 
+                                    onclick="return confirm('Are you sure you want to end the current stream?');">
+                                <i class="fas fa-stop-circle me-1"></i> End Stream
+                            </button>
+                        </form>
+                    <?php elseif ($whatnot_status['scheduled_time'] && strtotime($whatnot_status['scheduled_time']) > time()): ?>
+                        <a href="https://www.whatnot.com/user/<?php echo htmlspecialchars(getSetting('whatnot_username', 'tristate_cards')); ?>" class="btn btn-primary" target="_blank">
+                            <i class="fas fa-external-link-alt me-1"></i> Whatnot Profile
+                        </a>
+                    <?php else: ?>
+                        <a href="#update-stream" class="btn btn-primary" data-bs-toggle="collapse">
+                            <i class="fas fa-plus me-1"></i> Schedule New Stream
+                        </a>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>
+
+<div class="row">
+    <div class="col-md-6">
+        <!-- API Settings -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h5 class="mb-0 fw-bold">Whatnot API Settings</h5>
+            </div>
+            <div class="card-body">
+                <form action="settings.php" method="post">
+                    <input type="hidden" name="action" value="save_api_settings">
+                    
+                    <div class="mb-3">
+                        <label for="whatnot_username" class="form-label">Whatnot Username *</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-user"></i></span>
+                            <input type="text" class="form-control" id="whatnot_username" name="whatnot_username" 
+                                   value="<?php echo isset($settings['whatnot_username']) ? htmlspecialchars($settings['whatnot_username']) : ''; ?>" required>
+                        </div>
+                        <div class="form-text">Your Whatnot username (without the @ symbol)</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="whatnot_api_key" class="form-label">API Key</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-key"></i></span>
+                            <input type="text" class="form-control" id="whatnot_api_key" name="whatnot_api_key" 
+                                   value="<?php echo isset($settings['whatnot_api_key']) ? htmlspecialchars($settings['whatnot_api_key']) : ''; ?>">
+                        </div>
+                        <div class="form-text">Get this from your Whatnot developer account</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="whatnot_api_secret" class="form-label">API Secret</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                            <input type="password" class="form-control" id="whatnot_api_secret" name="whatnot_api_secret" 
+                                   value="<?php echo isset($settings['whatnot_api_secret']) ? htmlspecialchars($settings['whatnot_api_secret']) : ''; ?>">
+                        </div>
+                        <div class="form-text">Keep this secret and secure</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="auto_check_interval" class="form-label">Auto-Check Interval (minutes)</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-clock"></i></span>
+                            <input type="number" class="form-control" id="auto_check_interval" name="auto_check_interval" min="5" 
+                                   value="<?php echo isset($settings['whatnot_check_interval']) ? htmlspecialchars($settings['whatnot_check_interval']) : '15'; ?>">
+                        </div>
+                        <div class="form-text">How often to check for stream status updates (minimum 5 minutes)</div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i> Save API Settings
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h5 class="mb-0 fw-bold">What is Whatnot?</h5>
+            </div>
+            <div class="card-body">
+                <p><a href="https://www.whatnot.com" target="_blank">Whatnot</a> is a live streaming platform for collectors and enthusiasts to buy, sell, and interact with their communities.</p>
+                
+                <h6 class="mt-3 mb-2">Why integrate with your website?</h6>
+                <ul>
+                    <li>Automatically show when you're live streaming</li>
+                    <li>Promote upcoming streams</li>
+                    <li>Drive more viewers to your Whatnot streams</li>
+                    <li>Track conversions from your website to Whatnot</li>
+                </ul>
+                
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-info-circle me-2"></i> Don't have a Whatnot account? 
+                    <a href="https://www.whatnot.com/signup" target="_blank" class="alert-link">Sign up here</a> 
+                    to start streaming your cards and collectibles!
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <!-- Manual Stream Update -->
+        <div class="card shadow mb-4" id="update-stream">
+            <div class="card-header py-3">
+                <h5 class="mb-0 fw-bold">Update Stream Status</h5>
+            </div>
+            <div class="card-body">
+                <form action="settings.php" method="post">
+                    <input type="hidden" name="action" value="update_stream">
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold d-block">Stream Status</label>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="is_live" id="status_live" value="1" <?php echo (isset($_POST['is_live']) && $_POST['is_live'] === '1') ? 'checked' : ''; ?>>
+                            <label class="form-check-label" for="status_live">
+                                <span class="badge bg-success"><i class="fas fa-circle me-1"></i> Live Now</span>
+                            </label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="is_live" id="status_upcoming" value="0" <?php echo (!isset($_POST['is_live']) || $_POST['is_live'] === '0') ? 'checked' : ''; ?>>
+                            <label class="form-check-label" for="status_upcoming">
+                                <span class="badge bg-primary"><i class="fas fa-calendar me-1"></i> Upcoming/Offline</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="stream_title" class="form-label">Stream Title * <small class="text-danger">(no emojis please)</small></label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-heading"></i></span>
+                            <input type="text" class="form-control" id="stream_title" name="stream_title" 
+                                   value="<?php echo isset($_POST['stream_title']) ? htmlspecialchars($_POST['stream_title']) : ''; ?>" required
+                                   placeholder="e.g., Baseball Card Breaks - Topps Series 2">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3 live-field">
+                        <label for="stream_url" class="form-label">Stream URL</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-link"></i></span>
+                            <input type="url" class="form-control" id="stream_url" name="stream_url" 
+                                   value="<?php echo isset($_POST['stream_url']) ? htmlspecialchars($_POST['stream_url']) : ''; ?>"
+                                   placeholder="https://www.whatnot.com/live/[your-stream-id]">
+                        </div>
+                        <div class="form-text">The direct URL to your live stream</div>
+                    </div>
+                    
+                    <div class="mb-3 upcoming-field">
+                        <label for="scheduled_time" class="form-label">Scheduled Time</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
+                            <input type="datetime-local" class="form-control" id="scheduled_time" name="scheduled_time" 
+                                   value="<?php echo isset($_POST['scheduled_time']) ? htmlspecialchars($_POST['scheduled_time']) : ''; ?>">
+                        </div>
+                        <div class="form-text">When your stream is scheduled to begin</div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save me-1"></i> Update Stream Status
+                    </button>
+                    
+                    <?php if ($whatnot_status && $whatnot_status['is_live']): ?>
+                        <button type="submit" name="end_stream" value="1" class="btn btn-outline-danger ms-2" 
+                                onclick="return confirm('Are you sure you want to end the current stream?');">
+                            <i class="fas fa-stop-circle me-1"></i> End Current Stream
+                        </button>
+                    <?php endif; ?>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Analytics Card -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h5 class="mb-0 fw-bold">Whatnot Analytics</h5>
+            </div>
+            <div class="card-body">
+                <?php
+                // Get click statistics
+                try {
+                    // Last 30 days
+                    $last30_query = "SELECT COUNT(*) as count FROM whatnot_clicks WHERE click_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
+                    $last30_stmt = $pdo->prepare($last30_query);
+                    $last30_stmt->execute();
+                    $last30_clicks = $last30_stmt->fetch()['count'];
+                    
+                    // All time
+                    $alltime_query = "SELECT COUNT(*) as count FROM whatnot_clicks";
+                    $alltime_stmt = $pdo->prepare($alltime_query);
+                    $alltime_stmt->execute();
+                    $alltime_clicks = $alltime_stmt->fetch()['count'];
+                    
+                    // Recent streams
+                    $streams_query = "SELECT stream_id, COUNT(*) as clicks 
+                                    FROM whatnot_clicks 
+                                    WHERE stream_id > 0 
+                                    GROUP BY stream_id 
+                                    ORDER BY clicks DESC 
+                                    LIMIT 3";
+                    $streams_stmt = $pdo->prepare($streams_query);
+                    $streams_stmt->execute();
+                    $top_streams = $streams_stmt->fetchAll();
+                } catch (PDOException $e) {
+                    $last30_clicks = 0;
+                    $alltime_clicks = 0;
+                    $top_streams = [];
+                }
+                ?>
+                
+                <div class="row mb-4">
+                    <div class="col-6">
+                        <div class="text-center">
+                            <div class="stat-value text-primary"><?php echo number_format($last30_clicks); ?></div>
+                            <div class="stat-label">Last 30 Days</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-center">
+                            <div class="stat-value text-success"><?php echo number_format($alltime_clicks); ?></div>
+                            <div class="stat-label">All Time</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <?php if (!empty($top_streams)): ?>
+                    <h6 class="fw-bold mb-3">Top Performing Streams</h6>
+                    <ul class="list-group">
+                        <?php foreach ($top_streams as $index => $stream): ?>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Stream #<?php echo htmlspecialchars($stream['stream_id']); ?>
+                                <span class="badge bg-primary rounded-pill"><?php echo number_format($stream['clicks']); ?> clicks</span>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+                
+                <div class="mt-3">
+                    <a href="/admin/analytics/dashboard.php" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-chart-bar me-1"></i> View Full Analytics
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tips Card -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h5 class="mb-0 fw-bold">Stream Success Tips</h5>
+            </div>
+            <div class="card-body">
+                <div class="tip-list">
+                    <div class="d-flex mb-3">
+                        <div class="me-3 text-primary">
+                            <i class="fas fa-calendar-alt fa-lg"></i>
+                        </div>
+                        <div>
+                            <h6 class="mb-1">Consistency is Key</h6>
+                            <p class="mb-0 small">Stream on a regular schedule so your audience knows when to tune in.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex mb-3">
+                        <div class="me-3 text-primary">
+                            <i class="fas fa-bullhorn fa-lg"></i>
+                        </div>
+                        <div>
+                            <h6 class="mb-1">Promote in Advance</h6>
+                            <p class="mb-0 small">Announce your streams at least 24-48 hours in advance across all platforms.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex">
+                        <div class="me-3 text-primary">
+                            <i class="fas fa-comments fa-lg"></i>
+                        </div>
+                        <div>
+                            <h6 class="mb-1">Engage Your Audience</h6>
+                            <p class="mb-0 small">Respond to comments, ask questions, and create an interactive experience.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Help section -->
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h5 class="mb-0 fw-bold">Need Help?</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <h6 class="fw-bold">Common Questions</h6>
+                <div class="accordion accordion-flush" id="faqAccordion">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="faqOne">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
+                                How does the Whatnot integration work?
+                            </button>
+                        </h2>
+                        <div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="faqOne" data-bs-parent="#faqAccordion">
+                            <div class="accordion-body">
+                                The integration displays your live stream status on your website automatically. When you're live, visitors can click through to watch. You can also promote upcoming streams and track click-through rates.
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="faqTwo">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+                                Why can't I use emojis in my stream title?
+                            </button>
+                        </h2>
+                        <div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="faqTwo" data-bs-parent="#faqAccordion">
+                            <div class="accordion-body">
+                                Your database needs to be configured to handle emojis (UTF-8MB4 encoding). You can use our <a href="/emoji_converter.php">emoji converter tool</a> to fix this issue automatically. After running the tool, you'll be able to use emojis in your stream titles.
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="faqThree">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
+                                How do I get API credentials from Whatnot?
+                            </button>
+                        </h2>
+                        <div id="collapseThree" class="accordion-collapse collapse" aria-labelledby="faqThree" data-bs-parent="#faqAccordion">
+                            <div class="accordion-body">
+                                Currently, this feature is for manual updates only. The Whatnot API is not yet publicly available for most sellers. You can still use this integration by manually updating your stream status when you go live.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <h6 class="fw-bold">Troubleshooting Tips</h6>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex">
+                        <div class="me-3 text-danger">
+                            <i class="fas fa-exclamation-circle"></i>
+                        </div>
+                        <div>
+                            If your stream isn't showing on the homepage, try refreshing your cache or checking your stream status here.
+                        </div>
+                    </li>
+                    <li class="list-group-item d-flex">
+                        <div class="me-3 text-danger">
+                            <i class="fas fa-exclamation-circle"></i>
+                        </div>
+                        <div>
+                            Make sure your Whatnot username is entered correctly (case sensitive without the @ symbol).
+                        </div>
+                    </li>
+                    <li class="list-group-item d-flex">
+                        <div class="me-3 text-danger">
+                            <i class="fas fa-exclamation-circle"></i>
+                        </div>
+                        <div>
+                            If you're having database errors, contact your website administrator or use the <a href="/emergency_access.php">emergency admin access</a> tool.
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<?php 
+// Include admin footer
+include_once '../includes/footer.php'; 
+?>
